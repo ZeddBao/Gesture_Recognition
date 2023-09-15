@@ -1,4 +1,5 @@
 # u.py
+import time
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
@@ -7,21 +8,22 @@ import cv2
 import mediapipe as mp
 import math
 import random
-import time
-import threading
-
+from decimal import Decimal
 # 全局变量用于存储手势识别结果和生成的数字
+
 gesture_result = None
 generated_number = None
 generated_color = None
-generated_time = 0
-true_cnt = 0
-false_cnt = 0
+# generated_time = 0.0
+generated_time = Decimal("0.0")
+true_cnt = Decimal("0.0")
 total_cnt = 0
 add_flag = 0
 compare_flag = 0
-timer = None
-timer2 = None
+
+
+
+
 
 class VideoThread(QThread):
     frame_ready = pyqtSignal(object)
@@ -155,7 +157,6 @@ class VideoThread(QThread):
             frame = cv2.flip(frame, 1)  # 左右镜像
             results = hands.process(frame)  # 将图像传入检测
             # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # RGB转BGR
-            time1 = time.time()
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
                     mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
@@ -237,6 +238,14 @@ class Ui_MainWindow(object):
         # 创建槽函数
         self.start.clicked.connect(self.onButtonClicked)
 
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.my_timer_function)
+        self.timer.setInterval(1000)  # 1秒
+
+        self.timer2 = QTimer()
+        self.timer2.timeout.connect(self.my_timer_function_2)
+        self.timer2.setInterval(100)  # 0.1秒
+
     # 随机生成数字和颜色
     def generate_random_number_and_color(self):
         global generated_number
@@ -245,53 +254,81 @@ class Ui_MainWindow(object):
         return generated_number, color
 
     def my_timer_function(self):
-        global generated_number, generated_color, add_flag, total_cnt, gesture_result, timer,timer2
-        # print(time.time())
+        global generated_number, generated_color, add_flag, total_cnt, gesture_result
         add_flag = 1
-        total_cnt += 1
         generated_number, generated_color = self.generate_random_number_and_color()
-        print(generated_color)
+        total_cnt += 1
         self.total.setText("{}".format(total_cnt))
         self.s.setText("{}".format(true_cnt))
-        if generated_number != None:
-            timer2 = threading.Timer(0.1, self.my_timer_function_2)
-            timer2.start()
+        self.timer2.start()
+
 
     def my_timer_function_2(self):
-        global generated_time, timer, total_cnt, compare_flag, add_flag,true_cnt
-        generated_time += 0.1
-        timer2 = threading.Timer(0.1, self.my_timer_function_2)
-        timer2.start()
+        global generated_time, timer, total_cnt, compare_flag, add_flag, true_cnt,generated_number,gesture_result,generated_color
+        self.timer.stop()
+        generated_time += Decimal("0.1")
         self.time.setText("{}".format(2 - generated_time))
         if compare_flag:
             compare_flag = 0
             if gesture_result == generated_number and generated_color == (0, 255, 0) and add_flag == 1:
-                # total_cnt += 1
                 print("绿色正确")
-                true_cnt += 1
+                self.timer2.stop()
+                if 2 - float(generated_time) > 1.0:
+                    true_cnt += Decimal("1.0")
+                elif (2 - float(generated_time)) < 1.0 and (2 - float(generated_time)) > 0.5:
+                    true_cnt += Decimal("0.5")
+                else:
+                    print("不加分")
+                print(true_cnt)
+                print("######################{}#################################".format(total_cnt))
                 add_flag = 0
+                generated_time = Decimal("0.0")
+                if total_cnt < 10:
+                    self.timer.start()
+                # self.my_timer_function()
+
             elif gesture_result != generated_number and generated_color == (0, 0, 255) and add_flag == 1:
-                # total_cnt += 1
                 print("红色正确")
-                true_cnt += 1
+                self.timer2.stop()
+                if 2 - float(generated_time) > 1.0:
+                    true_cnt += Decimal("1.0")
+                elif (2 - float(generated_time)) < 1.0 and (2 - float(generated_time)) > 0.5:
+                    true_cnt += Decimal("0.5")
+                else:
+                    print("不加分")
+                print(true_cnt)
+                print("######################{}#################################".format(total_cnt))
                 add_flag = 0
+                generated_time = Decimal("0.0")
+                if total_cnt < 10:
+                    self.timer.start()
+                # self.my_timer_function()
+
             else:
                 pass
+
+        formatted_time = "{:.1f}".format(2 - float(generated_time))
+        print("generated_time: {}".format(formatted_time))
         if 2 - generated_time == 0.0:
-            generated_time = 0
-            timer = threading.Timer(2, self.my_timer_function)
+            generated_time = Decimal("0.0")
+            print("######################{}#################################".format(total_cnt))
+            self.timer.start()
+            self.timer2.stop()
             if total_cnt == 10:
-                timer.cancel()
+                self.timer2.stop()
                 return
-            timer.start()
+        if total_cnt == 10:
+            self.timer.stop()
+            self.s.setText("{}".format(true_cnt))
+            # generated_number=None
+            # self.timer2.stop()
+            return
+
 
     def onButtonClicked(self):
-        global gesture_result, generated_number, generated_color, true_cnt, false_cnt, total_cnt, add_flag, timer,generated_time,timer2
+        global gesture_result, generated_number, generated_color, true_cnt, false_cnt, total_cnt, add_flag, generated_time,timer
         # 这是按钮被点击时会调用的槽函数
         print("Button Clicked!")
-        if timer2 or timer!=None:
-            timer.cancel()
-            timer2.cancel()
         gesture_result = None
         generated_number = None
         generated_color = None
@@ -299,18 +336,20 @@ class Ui_MainWindow(object):
         false_cnt = 0
         total_cnt = 0
         add_flag = 0
-        generated_time=0
-        timer = threading.Timer(2, self.my_timer_function)
-        timer.start()
+        generated_time = 0
+        if generated_number==None:
+            self.timer2.stop()
+            self.time.setText("{}".format(2.0 - generated_time))
+        self.timer.start()
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.vediolabel.setText(_translate("MainWindow", "TextLabel"))
         self.sum.setText(_translate("MainWindow", "总个数"))
-        self.total.setText(_translate("MainWindow", "TextLabel"))
+        self.total.setText(_translate("MainWindow", "0"))
         self.sum_s.setText(_translate("MainWindow", "总得分"))
-        self.s.setText(_translate("MainWindow", "TextLabel"))
+        self.s.setText(_translate("MainWindow", "0"))
         self.start.setText(_translate("MainWindow", "开始"))
         self.time.setText(_translate("MainWindow", "2.0"))
 
