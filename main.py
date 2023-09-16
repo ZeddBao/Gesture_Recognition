@@ -9,20 +9,19 @@ import mediapipe as mp
 import math
 import random
 from decimal import Decimal
-# 全局变量用于存储手势识别结果和生成的数字
 
+# 全局变量用于存储手势识别结果和生成的数字
+PRINT_LOG = True
 gesture_result = None
 generated_number = None
 generated_color = None
-# generated_time = 0.0
 generated_time = Decimal("0.0")
 true_cnt = Decimal("0.0")
 total_cnt = 0
 add_flag = 0
 compare_flag = 0
-
-
-
+flash_flag = 1
+level = 0
 
 
 class VideoThread(QThread):
@@ -142,7 +141,7 @@ class VideoThread(QThread):
         return gesture_str
 
     def run(self):
-        global generated_number, gesture_result, generated_color, total_cnt, true_cnt, false_cnt, add_flag, compare_flag
+        global flash_flag, level, generated_number, gesture_result, generated_color, total_cnt, true_cnt, false_cnt, add_flag, compare_flag
         mp_drawing = mp.solutions.drawing_utils
         mp_hands = mp.solutions.hands
         hands = mp_hands.Hands(
@@ -169,14 +168,23 @@ class VideoThread(QThread):
                         angle_list = self.hand_angle(hand_local)
                         gesture_str = self.h_gesture(angle_list)
                         cv2.putText(frame, gesture_str, (0, 100), 0, 1.3, (0, 0, 255), 3)
-                # print('gesture_result={}generated_number={}'.format(gesture_result,generated_number))
                 compare_flag = 1
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # RGB转BGR
-            cv2.putText(frame, str(generated_number), (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
+            if level == 0:
+                cv2.putText(frame, str(generated_number), (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
+            elif level == 1:  # and flash_flag:
+                cv2.putText(frame, "miss", (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
+                # level = 0
+                # flash_flag=0
+            elif level == 2:  # and flash_flag:
+                cv2.putText(frame, "good", (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
+                # level = 0
+                # flash_flag = 0
+            elif level == 3:  # and flash_flag:
+                cv2.putText(frame, "perfect", (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
+                # level = 0
+                # flash_flag = 0
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # BGR转RGB
-            # cv2.putText(frame, str(total_cnt), (400, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
-            # cv2.putText(frame, str(true_cnt), (520, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
-            # cv2.imshow('MediaPipe Hands', frame)
             self.frame_ready.emit(frame)
 
 
@@ -254,81 +262,101 @@ class Ui_MainWindow(object):
         return generated_number, color
 
     def my_timer_function(self):
-        global generated_number, generated_color, add_flag, total_cnt, gesture_result
+        global level, flash_flag, generated_number, generated_color, add_flag, total_cnt, gesture_result
         add_flag = 1
+        flash_flag = 0
+        level = 0
+        gesture_result = None
         generated_number, generated_color = self.generate_random_number_and_color()
+        if PRINT_LOG:
+            print("number={}".format(generated_number))
         total_cnt += 1
         self.total.setText("{}".format(total_cnt))
         self.s.setText("{}".format(true_cnt))
         self.timer2.start()
 
-
     def my_timer_function_2(self):
-        global generated_time, timer, total_cnt, compare_flag, add_flag, true_cnt,generated_number,gesture_result,generated_color
+        global flash_flag, level, generated_time, timer, total_cnt, compare_flag, add_flag, true_cnt, generated_number, \
+            gesture_result, generated_color
         self.timer.stop()
         generated_time += Decimal("0.1")
         self.time.setText("{}".format(2 - generated_time))
         if compare_flag:
             compare_flag = 0
-            if gesture_result == generated_number and generated_color == (0, 255, 0) and add_flag == 1:
-                print("绿色正确")
+            if gesture_result != None and gesture_result == generated_number and generated_color == (0, 255, 0) and add_flag == 1:
+                if PRINT_LOG:
+                    print("result={}".format(gesture_result))
+                    print("绿色正确")
                 self.timer2.stop()
-                if 2 - float(generated_time) > 1.0:
+                if 2 - float(generated_time) >= 1.0:
                     true_cnt += Decimal("1.0")
+                    level = 3
+                    flash_flag = 1
                 elif (2 - float(generated_time)) < 1.0 and (2 - float(generated_time)) > 0.5:
                     true_cnt += Decimal("0.5")
+                    level = 2
+                    flash_flag = 1
                 else:
-                    print("不加分")
-                print(true_cnt)
-                print("######################{}#################################".format(total_cnt))
+                    if PRINT_LOG:
+                        print("不加分")
+                    level = 0
+                if PRINT_LOG:
+                    print(true_cnt)
+                    print("######################{}#################################".format(total_cnt))
                 add_flag = 0
                 generated_time = Decimal("0.0")
                 if total_cnt < 10:
                     self.timer.start()
-                # self.my_timer_function()
-
-            elif gesture_result != generated_number and generated_color == (0, 0, 255) and add_flag == 1:
-                print("红色正确")
+            elif gesture_result != None and gesture_result != generated_number and generated_color == (0, 0, 255) and add_flag == 1:
+                if PRINT_LOG:
+                    print("result={}".format(gesture_result))
+                    print("红色正确")
                 self.timer2.stop()
-                if 2 - float(generated_time) > 1.0:
+                if 2 - float(generated_time) >= 1.0:
                     true_cnt += Decimal("1.0")
+                    level = 3
+                    flash_flag = 1
                 elif (2 - float(generated_time)) < 1.0 and (2 - float(generated_time)) > 0.5:
                     true_cnt += Decimal("0.5")
+                    level = 2
+                    flash_flag = 1
                 else:
-                    print("不加分")
-                print(true_cnt)
-                print("######################{}#################################".format(total_cnt))
+                    if PRINT_LOG:
+                        print("不加分")
+                    level = 0
+                if PRINT_LOG:
+                    print(true_cnt)
+                    print("######################{}#################################".format(total_cnt))
                 add_flag = 0
                 generated_time = Decimal("0.0")
                 if total_cnt < 10:
                     self.timer.start()
-                # self.my_timer_function()
-
             else:
                 pass
 
         formatted_time = "{:.1f}".format(2 - float(generated_time))
-        print("generated_time: {}".format(formatted_time))
+        if PRINT_LOG:
+            print("generated_time: {}".format(formatted_time))
         if 2 - generated_time == 0.0:
             generated_time = Decimal("0.0")
-            print("######################{}#################################".format(total_cnt))
+            level = 1
+            if PRINT_LOG:
+                print("######################{}#################################".format(total_cnt))
+            self.timer.stop()
             self.timer.start()
             self.timer2.stop()
             if total_cnt == 10:
                 self.timer2.stop()
+                self.timer.stop()
                 return
         if total_cnt == 10:
             self.timer.stop()
             self.s.setText("{}".format(true_cnt))
-            # generated_number=None
-            # self.timer2.stop()
             return
 
-
+    # 这是按钮被点击时会调用的槽函数
     def onButtonClicked(self):
-        global gesture_result, generated_number, generated_color, true_cnt, false_cnt, total_cnt, add_flag, generated_time,timer
-        # 这是按钮被点击时会调用的槽函数
-        print("Button Clicked!")
+        global gesture_result, generated_number, generated_color, true_cnt, false_cnt, total_cnt, add_flag, generated_time, timer
         gesture_result = None
         generated_number = None
         generated_color = None
@@ -337,7 +365,7 @@ class Ui_MainWindow(object):
         total_cnt = 0
         add_flag = 0
         generated_time = 0
-        if generated_number==None:
+        if generated_number == None:
             self.timer2.stop()
             self.time.setText("{}".format(2.0 - generated_time))
         self.timer.start()
