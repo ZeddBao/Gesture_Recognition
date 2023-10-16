@@ -4,6 +4,7 @@ import os
 import cv2
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 
 def rotate(img, angle):
     height, width = img.shape[:2]
@@ -21,8 +22,8 @@ def flip(img, direction):
     return dst
 
 def main():
-    data_path = 'dataset/'
-    save_path = 'dataset_augmented/'
+    data_path = 'dataset_origin/'
+    save_path = 'dataset_augmented_buffer/'
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     for file in os.listdir(data_path):
@@ -30,7 +31,7 @@ def main():
         save_file_path = os.path.join(save_path, file)
         if not os.path.exists(save_file_path):
             os.mkdir(save_file_path)
-        for img_file in os.listdir(file_path):
+        for img_file in tqdm(os.listdir(file_path)):
             img_file_path = os.path.join(file_path, img_file)
             img = cv2.imread(img_file_path)
             for angle in [45, 90, 135, 180, 225, 270, 315]:

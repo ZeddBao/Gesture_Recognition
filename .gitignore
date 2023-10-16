@@ -1,2 +1,8 @@
-dataset/
+dataset_waste/
+dataset_origin/
 dataset_augmented/
+dataset_augmented_buffer/
+runs/
+.idea/
+.vscode/
+__pycache__/

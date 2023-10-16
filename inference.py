@@ -5,10 +5,11 @@ import cv2
 
 model = MLP(63, 128, 10)
 # 加载模型
-model.load_state_dict(torch.load('ckpt/model_10.pth'))
+model.load_state_dict(torch.load('ckpt/model_epoch32.pth'))
 # 载入gpu
 device = torch.device('cuda:0')
 model = model.to(device)
+model.eval()
 
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
@@ -19,10 +20,11 @@ hands = mp_hands.Hands(
     min_tracking_confidence=0.75)
 
 def inference(hand_landmarks):
-    input = hand_landmarks.view(1, -1).to(device)
-    output = model(input)
-    # 对[1,10]的output进行softmax，得到[1,10]的output
-    output = torch.softmax(output, dim=1)
+    with torch.no_grad():
+        input = hand_landmarks.view(1, -1).to(device)
+        output = model(input)
+        # 对[1,10]的output进行softmax，得到[1,10]的output
+        output = torch.softmax(output, dim=1)
     return output
 
 def get_hand_landmarks(img):
@@ -49,16 +51,17 @@ def get_hand_landmarks(img):
         else:
             return img, None
 
-cap = cv2.VideoCapture(0)
-while True:
-    ret, frame = cap.read()  # 读取一帧图像
-    frame = cv2.flip(frame, 1)  # 左右镜像
-    annotated_image, hand_landmarks = get_hand_landmarks(frame)
-    if hand_landmarks is not None:
-        output = inference(hand_landmarks)
-        label, prob = torch.argmax(output, dim=1), torch.max(output, dim=1)[0]
-        if prob>0.9:
-            print('label: {}, prob: {}'.format(label.item(), prob.item()))
-    cv2.imshow('MediaPipe Hands', annotated_image)
-    if cv2.waitKey(5) & 0xFF == 27: # 按Esc键退出
-        break
+if __name__ == '__main__':
+    cap = cv2.VideoCapture(0)
+    while True:
+        ret, frame = cap.read()  # 读取一帧图像
+        frame = cv2.flip(frame, 1)  # 左右镜像
+        annotated_image, hand_landmarks = get_hand_landmarks(frame)
+        if hand_landmarks is not None:
+            output = inference(hand_landmarks)
+            label, prob = torch.argmax(output, dim=1), torch.max(output, dim=1)[0]
+            if prob>0.9:
+                print('label: {}, prob: {}'.format(label.item(), prob.item()))
+        cv2.imshow('MediaPipe Hands', annotated_image)
+        if cv2.waitKey(5) & 0xFF == 27: # 按Esc键退出
+            break

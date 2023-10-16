@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 from mlp import MLP
 
 
-# 加入tensorboard
-
-
+# 创建一个 SummaryWriter 对象
+writer = SummaryWriter()
 
 # 定义模型
 model = MLP(63, 128, 10)
@@ -15,27 +16,40 @@ model = MLP(63, 128, 10)
 # 定义优化器
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 criterion = nn.CrossEntropyLoss()
-dataset = torch.load('data_augmented/dataset_randomized.pkl')
+dataset = torch.load('dataset_pkl/dataset_randomized.pkl')
+
+# 使用 DataLoader 加载数据
+batch_size = 32  # 设置批量大小
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # 载入gpu
 device = torch.device('cuda:0')
 model = model.to(device)
 
-for epoch in range(20):
-    for hand_landmarks, label in tqdm(dataset):
-        label = label.view(1, -1).to(device)
-        input = hand_landmarks.view(1, -1).to(device)
+for epoch in range(32):
+    for i, (hand_landmarks, labels) in enumerate(tqdm(dataloader)):
+        current_batch_size = hand_landmarks.size(0)
+        labels = labels.to(device)
+        # print('label.shape', labels.shape)
+        input = hand_landmarks.view(current_batch_size, -1).to(device)
+        # print('input.shape', input.shape)
         # 将模型输入转换成模型输出
         output = model(input)
         # 计算损失
-        loss = criterion(output, label)
+        loss = criterion(output, labels)
         # 反向传播
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    print('epoch: {}, loss: {}'.format(epoch, loss.item()))
+
+        # 将损失写入 TensorBoard
+        writer.add_scalar('Loss/train', loss, epoch*len(dataset) + i)
+
+    print('epoch: {}, loss: {}'.format(epoch+1, loss.item()))
     # 保存阶段性模型
-    torch.save(model.state_dict(), 'ckpt/model_{}.pth'.format(epoch))
+    torch.save(model.state_dict(), 'ckpt/model_epoch{}.pth'.format(epoch+1))
+
 # 保存最终模型
 torch.save(model.state_dict(), 'ckpt/model.pth')
-
+# 关闭 SummaryWriter
+writer.close()
