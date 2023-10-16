@@ -22,7 +22,7 @@ def flip(img, direction):
 
 def main():
     data_path = 'dataset/'
-    save_path = 'data_augmented/'
+    save_path = 'dataset_augmented/'
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     for file in os.listdir(data_path):
