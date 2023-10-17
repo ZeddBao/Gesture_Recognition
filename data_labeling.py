@@ -3,12 +3,8 @@
 import cv2
 import torch
 import mediapipe as mp
-import numpy as np
+
 import os
-import time
-import math
-from PIL import Image
-from tqdm import tqdm
 import random
 
 mp_drawing = mp.solutions.drawing_utils

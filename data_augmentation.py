@@ -2,8 +2,6 @@
 
 import os
 import cv2
-import numpy as np
-from PIL import Image
 from tqdm import tqdm
 
 def rotate(img, angle):
