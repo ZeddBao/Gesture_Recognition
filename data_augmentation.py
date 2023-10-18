@@ -2,6 +2,9 @@
 
 import os
 import cv2
+from wand.image import Image as wi
+import numpy as np
+from PIL import Image
 from tqdm import tqdm
 
 def rotate(img, angle):
@@ -31,14 +34,22 @@ def main():
             os.mkdir(save_file_path)
         for img_file in tqdm(os.listdir(file_path)):
             img_file_path = os.path.join(file_path, img_file)
-            img = cv2.imread(img_file_path)
+            if img_file.endswith('.heic'):
+                with wi(filename=img_file_path) as image:
+                    image.format = 'jpeg'
+                    img_data = np.asarray(bytearray(image.make_blob()), dtype=np.uint8)
+                img = cv2.imdecode(img_data, cv2.IMREAD_UNCHANGED)
+            elif img_file.endswith(('.jpg', '.JPG')):
+                img = cv2.imread(img_file_path)
+            else:
+                continue
             for angle in [45, 90, 135, 180, 225, 270, 315]:
                 dst = rotate(img, angle)
-                save_img_file_path = os.path.join(save_file_path, str(angle) + '_' + img_file)
+                save_img_file_path = os.path.join(save_file_path, str(angle) + '_' + img_file.replace('.heic', '.jpg'))
                 cv2.imwrite(save_img_file_path, dst)
             for direction in [0, 1, 'origin']:
                 dst = flip(img, direction)
-                save_img_file_path = os.path.join(save_file_path, str(direction) + '_' + img_file)
+                save_img_file_path = os.path.join(save_file_path, str(direction) + '_' + img_file.replace('.heic', '.jpg'))
                 cv2.imwrite(save_img_file_path, dst)
 
 if __name__ == '__main__':

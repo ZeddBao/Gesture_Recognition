@@ -7,7 +7,7 @@ class MLP(nn.Module):
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, num_classes)
-        self.dropout = nn.Dropout(0.5)  # 添加 Dropout 层，丢弃率设为0.5
+        self.dropout = nn.Dropout(0.2)  # 添加 Dropout 层，丢弃率设为0.5
 
     def forward(self, x):
         x = F.relu(self.fc1(x))

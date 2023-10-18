@@ -5,7 +5,7 @@ import cv2
 
 model = MLP(63, 128, 10)
 # 加载模型
-model.load_state_dict(torch.load('ckpt/model_epoch32.pth'))
+model.load_state_dict(torch.load('ckpt/model_epoch16.pth'))
 # 载入gpu
 device = torch.device('cuda:0')
 model = model.to(device)
@@ -60,8 +60,8 @@ if __name__ == '__main__':
         if hand_landmarks is not None:
             output = inference(hand_landmarks)
             label, prob = torch.argmax(output, dim=1), torch.max(output, dim=1)[0]
-            if prob>0.9:
-                print('label: {}, prob: {}'.format(label.item(), prob.item()))
+            # if prob>0.9:
+            print('label: {}, prob: {}'.format(label.item(), prob.item()))
         cv2.imshow('MediaPipe Hands', annotated_image)
         if cv2.waitKey(5) & 0xFF == 27: # 按Esc键退出
             break

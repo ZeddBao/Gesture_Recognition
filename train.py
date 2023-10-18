@@ -16,17 +16,17 @@ model = MLP(63, 128, 10)
 # 定义优化器
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 criterion = nn.CrossEntropyLoss()
-dataset = torch.load('dataset_pkl/dataset_randomized.pkl')
+dataset = torch.load('dataset_augmented/dataset_randomized.pkl')
 
 # 使用 DataLoader 加载数据
-batch_size = 16  # 设置批量大小
+batch_size = 1  # 设置批量大小
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # 载入gpu
 device = torch.device('cuda:0')
 model = model.to(device)
 
-for epoch in range(48):
+for epoch in range(16):
     for i, (hand_landmarks, labels) in enumerate(tqdm(dataloader)):
         current_batch_size = hand_landmarks.size(0)
         labels = labels.to(device)
