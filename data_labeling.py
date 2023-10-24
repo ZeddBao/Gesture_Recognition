@@ -134,15 +134,16 @@ def randomize(dataset):
 
 if __name__ == '__main__':
     path = 'dataset_augmented/'
-    # file_list = os.listdir(path)
-    # print(file_list)
-    # with ProcessPoolExecutor(max_workers=2) as executor:
-    #     executor.submit(extract_landmarks, os.path.join(path, '8'))
-    #     executor.submit(extract_landmarks, os.path.join(path, '9'))
+    file_list = os.listdir(path)
+    print(file_list)
+    with ProcessPoolExecutor(max_workers=2) as executor:
+        for file in file_list:
+            executor.submit(extract_landmarks, os.path.join(path, file))
     dataset = collect_pkl(path)
     torch.save(dataset, os.path.join(path, 'dataset.pkl'))
     dataset_randomized = randomize(dataset)
     torch.save(dataset_randomized, os.path.join(path, 'dataset_randomized.pkl'))
     print('dataset length:', len(dataset_randomized))
+    print('class num:', sum(dataset_randomized[:,1]))
 
     # delete_pkl(path)

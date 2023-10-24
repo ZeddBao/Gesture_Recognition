@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -16,7 +18,7 @@ model = MLP(63, 128, 10)
 # 定义优化器
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 criterion = nn.CrossEntropyLoss()
-dataset = torch.load('dataset_augmented/dataset_randomized.pkl')
+dataset = torch.load('dataset_pkl/v2/dataset_5000.pkl')
 
 # 使用 DataLoader 加载数据
 batch_size = 1  # 设置批量大小
