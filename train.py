@@ -21,7 +21,7 @@ criterion = nn.CrossEntropyLoss()
 dataset = torch.load('dataset_pkl/v2/dataset_5000.pkl')
 
 # 使用 DataLoader 加载数据
-batch_size = 1  # 设置批量大小
+batch_size = 16  # 设置批量大小
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # 载入gpu

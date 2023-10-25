@@ -95,8 +95,13 @@ def augment(dataset, class_num):
 
                 # 使用生成的正交矩阵对 hand_landmarks 进行变换
                 hand_landmarks = hand_landmarks.dot(Q)
+                # 将hand_landmarks改成最大最小归一化
+                for i in range(3):
+                    hand_landmarks[:, i] = (hand_landmarks[:, i] - hand_landmarks[:, i].min()) / (
+                        hand_landmarks[:, i].max() - hand_landmarks[:, i].min())
 
-                hand_landmarks = torch.from_numpy(hand_landmarks).reshape(1, 21, 3)
+                hand_landmarks = torch.from_numpy(
+                    hand_landmarks).reshape(1, 21, 3)
 
                 # 添加增强的数据和标签到列表
                 augmented_data.append(hand_landmarks.to(torch.float32))
@@ -108,10 +113,11 @@ def augment(dataset, class_num):
 
     return list(zip(augmented_data, augmented_labels))
 
+
 if __name__ == '__main__':
     # main()
     dataset = torch.load('dataset_pkl/v2/dataset.pkl')
-    dataset_augmented = augment(dataset, 5000)
+    dataset_augmented = augment(dataset, 10000)
     print(sum([item[1] for item in dataset_augmented]))
     print(dataset_augmented[0][0].shape, dataset_augmented[0][1].shape)
-    torch.save(dataset_augmented, 'dataset_pkl/v2/dataset_5000.pkl')
+    torch.save(dataset_augmented, 'dataset_pkl/v2/dataset_10000.pkl')

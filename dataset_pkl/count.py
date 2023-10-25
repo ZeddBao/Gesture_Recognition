@@ -3,7 +3,7 @@ import os
 import torch
 from torch.utils.data import DataLoader
 
-dataset = torch.load('dataset_pkl/v2/dataset.pkl')
+dataset = torch.load('dataset_pkl/v2/dataset_10000.pkl')
 batch_size = 32  # 设置批量大小
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 

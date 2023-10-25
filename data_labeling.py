@@ -25,6 +25,7 @@ def get_hand_landmarks(img, static_image_mode=True):
                 mp_drawing.draw_landmarks(
                     annotated_image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
             # 将results转为21*3的tensor
+                # print(hand_landmarks)
             hand_landmarks = torch.zeros((21, 3)).to(device)
             for i, landmark in enumerate(results.multi_hand_landmarks[0].landmark):
                 hand_landmarks[i, 0] = landmark.x
@@ -34,6 +35,7 @@ def get_hand_landmarks(img, static_image_mode=True):
             for i in range(3):
                 hand_landmarks[:, i] = (hand_landmarks[:, i] - hand_landmarks[:, i].min()) / (
                     hand_landmarks[:, i].max() - hand_landmarks[:, i].min())
+            # print(hand_landmarks)
             return annotated_image, hand_landmarks
         else:
             return img, None
