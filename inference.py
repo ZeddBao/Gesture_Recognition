@@ -2,10 +2,12 @@ import torch
 from mlp import MLP
 import mediapipe as mp
 import cv2
+from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 model = MLP(63, 128, 10)
 # 加载模型
-model.load_state_dict(torch.load('ckpt/model_epoch16.pth'))
+model.load_state_dict(torch.load('ckpt/1026/model.pth'))
 # 载入gpu
 device = torch.device('cuda:0')
 model = model.to(device)
@@ -50,6 +52,7 @@ def get_hand_landmarks(img):
             return annotated_image, hand_landmarks
         else:
             return img, None
+
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
