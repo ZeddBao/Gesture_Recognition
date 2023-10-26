@@ -4,7 +4,7 @@ import torch
 # 1. 准备数据和模型
 model = MLP(63, 128, 10)
 model.load_state_dict(torch.load('ckpt/1026_01/model.pth'))
-model.to('cpu')  # 量化当前只在CPU上支持
+model.to('cuda:0')
 model.eval()
 
 # 2. 定义量化配置
