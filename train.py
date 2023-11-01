@@ -22,7 +22,7 @@ dataset = torch.load('dataset_pkl/v2/dataset_train.pkl')
 
 # 使用 DataLoader 加载数据
 batch_size = 1  # 设置批量大小
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=32)
 
 # 载入gpu
 device = torch.device('cuda:0')
