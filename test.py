@@ -1,13 +1,21 @@
 import torch
-from mlp import MLP
+from mlp import MLP, QuantizedMLP
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
 model = MLP(63, 128, 10)
+# model = QuantizedMLP(63, 128, 10)
+
+# quantize
+# model.qconfig = torch.quantization.default_qconfig
+# model = torch.quantization.prepare(model, inplace=True)
+# model = torch.quantization.convert(model, inplace=True)
+
 # 加载模型
-model.load_state_dict(torch.load('ckpt/1026_01/model.pth'))
+model.load_state_dict(torch.load('ckpt/1026_01/model_quantized.pth'))
 # 载入gpu
 device = torch.device('cuda:0')
+# device = torch.device('cpu')
 model = model.to(device)
 model.eval()
 
