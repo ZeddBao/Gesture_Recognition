@@ -13,7 +13,10 @@ from mlp import MLP
 writer = SummaryWriter()
 
 # 定义模型
-model = MLP(63, 128, 10)
+# model = MLP(63, 128, 10)
+# model = MLP(63, 64, 10)
+# model = MLP(63, 32, 10)
+model = MLP(63, 16, 10)
 
 # 定义优化器
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
@@ -22,7 +25,7 @@ dataset = torch.load('dataset_pkl/v2/dataset_train.pkl')
 
 # 使用 DataLoader 加载数据
 batch_size = 1  # 设置批量大小
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=32)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=os.cpu_count())
 
 # 载入gpu
 device = torch.device('cuda:0')
