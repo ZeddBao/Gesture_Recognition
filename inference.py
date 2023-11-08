@@ -1,7 +1,7 @@
 import torch
 from mlp import MLP
-import mediapipe as mp
 import cv2
+import mediapipe as mp
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
