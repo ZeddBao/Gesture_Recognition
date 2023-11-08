@@ -8,10 +8,7 @@ from torch.utils.data import DataLoader
 # model = MLP(63, 128, 10)
 # model = MLP(63, 64, 10)
 model = MLP(63, 32, 10)
-<<<<<<< HEAD
-=======
 # model = MLP(63, 16, 10)
->>>>>>> c37ba8023c2dc0e1dd94cf34c0df4eda82812480
 # 加载模型
 model.load_state_dict(torch.load('ckpt/1101_23/model.pth'))
 # 载入gpu
