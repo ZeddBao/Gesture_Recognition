@@ -8,7 +8,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 from mlp import MLP
 
-
 # 创建一个 SummaryWriter 对象
 writer = SummaryWriter()
 

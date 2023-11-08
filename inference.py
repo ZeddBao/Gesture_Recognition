@@ -7,13 +7,15 @@ from torch.utils.data import DataLoader
 
 # model = MLP(63, 128, 10)
 # model = MLP(63, 64, 10)
-model = MLP(63, 16, 10)
+model = MLP(63, 32, 10)
+# model = MLP(63, 16, 10)
 # 加载模型
-model.load_state_dict(torch.load('ckpt/1102_00/model.pth'))
+model.load_state_dict(torch.load('ckpt/1101_23/model.pth'))
 # 载入gpu
 device = torch.device('cuda:0')
 model = model.to(device)
 model.eval()
+model.half()
 
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
@@ -25,7 +27,8 @@ hands = mp_hands.Hands(
 
 def inference(hand_landmarks):
     with torch.no_grad():
-        input = hand_landmarks.view(1, -1).to(device)
+        # input = hand_landmarks.view(1, -1).to(device)
+        input = hand_landmarks.view(1, -1).to(device).half()
         output = model(input)
         # 对[1,10]的output进行softmax，得到[1,10]的output
         output = torch.softmax(output, dim=1)
