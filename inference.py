@@ -35,35 +35,31 @@ def inference(hand_landmarks):
     return output
 
 def get_hand_landmarks(img):
-    with mp_hands.Hands(
-        static_image_mode=True,
-        max_num_hands=1,
-        min_detection_confidence=0.5) as hands:
-        results = hands.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        annotated_image = img.copy()
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(
-                    annotated_image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-            # 将results转为21*3的tensor
-            hand_landmarks = torch.zeros((21, 3)).to(device)
-            for i, landmark in enumerate(results.multi_hand_landmarks[0].landmark):
-                hand_landmarks[i, 0] = landmark.x
-                hand_landmarks[i, 1] = landmark.y
-                hand_landmarks[i, 2] = landmark.z
-            # 将hand_landmarks改成最大最小归一化
-            for i in range(3):
-                hand_landmarks[:, i] = (hand_landmarks[:, i] - hand_landmarks[:, i].min()) / (hand_landmarks[:, i].max() - hand_landmarks[:, i].min())
-            return annotated_image, hand_landmarks
-        else:
-            return img, None
+    results = hands.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    annotated_image = img.copy()
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            mp_drawing.draw_landmarks(
+                annotated_image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+        # 将results转为21*3的tensor
+        hand_landmarks = torch.zeros((21, 3)).to(device)
+        for i, landmark in enumerate(results.multi_hand_landmarks[0].landmark):
+            hand_landmarks[i, 0] = landmark.x
+            hand_landmarks[i, 1] = landmark.y
+            hand_landmarks[i, 2] = landmark.z
+        # 将hand_landmarks改成最大最小归一化
+        for i in range(3):
+            hand_landmarks[:, i] = (hand_landmarks[:, i] - hand_landmarks[:, i].min()) / (hand_landmarks[:, i].max() - hand_landmarks[:, i].min())
+        return annotated_image, hand_landmarks
+    else:
+        return img, None
 
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
     while True:
         ret, frame = cap.read()  # 读取一帧图像
-        frame = cv2.flip(frame, 1)  # 左右镜像
+        # frame = cv2.flip(frame, 1)  # 左右镜像
         annotated_image, hand_landmarks = get_hand_landmarks(frame)
         if hand_landmarks is not None:
             output = inference(hand_landmarks)
