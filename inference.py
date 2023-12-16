@@ -60,7 +60,7 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
     while True:
         ret, frame = cap.read()  # 读取一帧图像
-        # frame = cv2.flip(frame, 1)  # 左右镜像
+        frame = cv2.flip(frame, 1)  # 左右镜像
         annotated_image, hand_landmarks = get_hand_landmarks(frame)
         if hand_landmarks is not None:
             output = inference(hand_landmarks)

@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QCoreApplication
 import sys
 import cv2
 import mediapipe as mp
@@ -7,7 +7,10 @@ import math
 import random
 from decimal import Decimal
 from PyQt5.QtWidgets import QApplication, QWidget
-
+from PyQt5.QtWidgets import QMessageBox
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 # 全局变量用于存储手势识别结果和生成的数字
 PRINT_LOG = True
 gesture_result = None
@@ -20,13 +23,52 @@ add_flag = 0
 compare_flag = 0
 flash_flag = 1
 level = 0
+model_flag = 0
 
+
+
+class MLP(nn.Module):
+    def __init__(self, input_size, hidden_size, num_classes):
+        super(MLP, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, num_classes)
+        # self.dropout = nn.Dropout(0.5)  # 添加 Dropout 层，丢弃率设为0.5
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        # x = self.dropout(x)  # 在 fc1 和 fc2 之间使用 Dropout
+        x = F.relu(self.fc2(x))
+        # x = self.dropout(x)  # 在 fc2 和 fc3 之间使用 Dropout
+        x = self.fc3(x)
+        return x
+
+
+mp_drawing = mp.solutions.drawing_utils
+mp_hands = mp.solutions.hands
+
+model_2 = MLP(63, 32, 10)
+# 加载模型
+model_2.load_state_dict(torch.load('ckpt/1101_23/model.pth'))
+# 载入gpu
+device = torch.device('cuda:0')
+model_2 = model_2.to(device)
+model_2.eval()
+hands = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=1,
+    min_detection_confidence=0.75,
+    min_tracking_confidence=0.75)
 
 class VideoThread(QThread):
     frame_ready = pyqtSignal(object)
+    cap = cv2.VideoCapture(0)
 
     def __init__(self):
         super().__init__()
+        init_landmarks = torch.zeros((21, 3)).to(device)
+        init_output = self.inference(init_landmarks)
+
 
     def vector_2d_angle(self, v1, v2):
         '''
@@ -142,51 +184,105 @@ class VideoThread(QThread):
                 gesture_result = 9
         return gesture_str
 
+    def inference(self, hand_landmarks):
+        with torch.no_grad():
+            input = hand_landmarks.view(1, -1).to(device)
+            output = model_2(input)
+            # 对[1,10]的output进行softmax，得到[1,10]的output
+            output = torch.softmax(output, dim=1)
+        return output
+    def get_hand_landmarks(self, img):
+        results = hands.process(img)
+        annotated_image = img.copy()
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                mp_drawing.draw_landmarks(
+                    annotated_image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            # 将results转为21*3的tensor
+            hand_landmarks = torch.zeros((21, 3)).to(device)
+            for i, landmark in enumerate(results.multi_hand_landmarks[0].landmark):
+                hand_landmarks[i, 0] = landmark.x
+                hand_landmarks[i, 1] = landmark.y
+                hand_landmarks[i, 2] = landmark.z
+            # 将hand_landmarks改成最大最小归一化
+            for i in range(3):
+                hand_landmarks[:, i] = (hand_landmarks[:, i] - hand_landmarks[:, i].min()) / (
+                            hand_landmarks[:, i].max() - hand_landmarks[:, i].min())
+            return annotated_image, hand_landmarks
+        else:
+            return img, None
+
+
     def run(self):
         global flash_flag, level, generated_number, gesture_result, generated_color, total_cnt, true_cnt, false_cnt, add_flag, compare_flag
-        mp_drawing = mp.solutions.drawing_utils
-        mp_hands = mp.solutions.hands
-        hands = mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.75,
-            min_tracking_confidence=0.75)
-        cap = cv2.VideoCapture(0)
+
         while True:
-            ret, frame = cap.read()  # 读取一帧图像
+            start = cv2.getTickCount()
+            ret, frame = self.cap.read()             # 读取一帧图像
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # BGR转RGB
-            frame = cv2.flip(frame, 1)  # 左右镜像
-            results = hands.process(frame)  # 将图像传入检测
-            if results.multi_hand_landmarks:
-                for hand_landmarks in results.multi_hand_landmarks:
-                    mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-                    hand_local = []
-                    for i in range(21):
-                        x = hand_landmarks.landmark[i].x * frame.shape[1]
-                        y = hand_landmarks.landmark[i].y * frame.shape[0]
-                        hand_local.append((x, y))
-                    if hand_local:
-                        angle_list = self.hand_angle(hand_local)
-                        gesture_str = self.h_gesture(angle_list)
-                        cv2.putText(frame, gesture_str, (0, 100), 0, 1.3, (0, 0, 255), 3)
-                compare_flag = 1
+            frame = cv2.flip(frame, 1)          # 左右镜像
+            if model_flag == 1: #模型1
+                results = hands.process(frame)    # 将图像传入模型检测
+                if results.multi_hand_landmarks:
+                    for hand_landmarks in results.multi_hand_landmarks:
+                        mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                        hand_local = []
+                        for i in range(21):
+                            x = hand_landmarks.landmark[i].x * frame.shape[1]
+                            y = hand_landmarks.landmark[i].y * frame.shape[0]
+                            hand_local.append((x, y))
+                        if hand_local:
+                            angle_list = self.hand_angle(hand_local)
+                            gesture_str = self.h_gesture(angle_list)
+                            cv2.putText(frame, gesture_str, (0, 100), 0, 1.3, (0, 0, 255), 3)
+                    compare_flag = 1
+            elif model_flag == 2:#模型2 训练的模型
+                frame, hand_landmarks = self.get_hand_landmarks(frame)
+                if hand_landmarks is not None:
+                    output = self.inference(hand_landmarks)
+                    label, prob = torch.argmax(output, dim=1), torch.max(output, dim=1)[0]
+                    if prob > 0.9:
+                        gesture_result = label.item()
+                        cv2.putText(frame, str(label.item()) + ", Prob: {:.2f}".format(prob[0]), (0, 100), 0, 1.3, (0, 0, 255), 3)
+                    else:
+                        gesture_result = None
+                    # print(label.item())
+                    # print('label: {}, prob: {}'.format(label.item(), prob.item()))
+                    compare_flag = 1
+                # results = hands.process(frame)
+                # if results.multi_hand_landmarks:
+                #     for hand_landmarks in results.multi_hand_landmarks:
+                #         mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                #     # 将results转为21*3的tensor
+                #     hand_landmarks = torch.zeros((21, 3)).to(device)
+                #     for i, landmark in enumerate(results.multi_hand_landmarks[0].landmark):
+                #         hand_landmarks[i, 0] = landmark.x
+                #         hand_landmarks[i, 1] = landmark.y
+                #         hand_landmarks[i, 2] = landmark.z
+                #     # 将hand_landmarks改成最大最小归一化
+                #     for i in range(3):
+                #         hand_landmarks[:, i] = (hand_landmarks[:, i] - hand_landmarks[:, i].min())/(hand_landmarks[:, i].max() - hand_landmarks[:, i].min())
+                #     with torch.no_grad():
+                #         input = hand_landmarks.view(1, -1).to(device)
+                #         output = model_2(input)
+                #         output = torch.softmax(output, dim=1)
+                #     label, prob = torch.argmax(output, dim=1), torch.max(output, dim=1)[0]
+                #     cv2.putText(frame, label.item(), (0, 100), 0, 1.3, (0, 0, 255), 3)
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # RGB转BGR
             if level == 0:
                 cv2.putText(frame, str(generated_number), (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
-            elif level == 1:  # and flash_flag:
+            elif level == 1:
                 cv2.putText(frame, "miss", (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
-                # level = 0
-                # flash_flag=0
-            elif level == 2:  # and flash_flag:
+            elif level == 2:
                 cv2.putText(frame, "good", (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
-                # level = 0
-                # flash_flag = 0
-            elif level == 3:  # and flash_flag:
+            elif level == 3:
                 cv2.putText(frame, "perfect", (280, 100), cv2.FONT_HERSHEY_PLAIN, 5, generated_color, 10)
-                # level = 0
-                # flash_flag = 0
+            end = cv2.getTickCount()
+            fps = cv2.getTickFrequency() / (end - start)
+            cv2.putText(frame, "FPS: {:.2f}".format(fps), (0, 30), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # BGR转RGB
             self.frame_ready.emit(frame)
+
 
 
 class Ui_Form(object):
@@ -194,10 +290,10 @@ class Ui_Form(object):
 
     def setupUi(self, Form):
         Form.setObjectName("Form")
-        Form.resize(857, 483)
+        Form.resize(816, 486)
         Form.setStyleSheet("background-color: rgb(0, 85, 255);")
-        self.horizontalLayout_5 = QtWidgets.QHBoxLayout(Form)
-        self.horizontalLayout_5.setObjectName("horizontalLayout_5")
+        self.horizontalLayout_6 = QtWidgets.QHBoxLayout(Form)
+        self.horizontalLayout_6.setObjectName("horizontalLayout_6")
         self.image = QtWidgets.QLabel(Form)
         self.image.setMinimumSize(QtCore.QSize(640, 400))
         self.image.setStyleSheet("background-color: rgb(85, 170, 255);\n"
@@ -205,11 +301,19 @@ class Ui_Form(object):
                                  "color:rgb(255, 255, 255)")
         self.image.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop)
         self.image.setObjectName("image")
-        self.horizontalLayout_5.addWidget(self.image)
+        self.horizontalLayout_6.addWidget(self.image)
         self.verticalLayout_4 = QtWidgets.QVBoxLayout()
-        self.verticalLayout_4.setSpacing(12)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
-        spacerItem = QtWidgets.QSpacerItem(20, 110, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_5.setObjectName("horizontalLayout_5")
+        self.model_check = QtWidgets.QCheckBox(Form)
+        self.model_check.setObjectName("model_check")
+        self.horizontalLayout_5.addWidget(self.model_check)
+        self.model_check_2 = QtWidgets.QCheckBox(Form)
+        self.model_check_2.setObjectName("model_check_2")
+        self.horizontalLayout_5.addWidget(self.model_check_2)
+        self.verticalLayout_4.addLayout(self.horizontalLayout_5)
+        spacerItem = QtWidgets.QSpacerItem(20, 100, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
         self.verticalLayout_4.addItem(spacerItem)
         self.verticalLayout_2 = QtWidgets.QVBoxLayout()
         self.verticalLayout_2.setSpacing(30)
@@ -299,7 +403,7 @@ class Ui_Form(object):
         spacerItem5 = QtWidgets.QSpacerItem(20, 50, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_3.addItem(spacerItem5)
         self.verticalLayout_4.addLayout(self.verticalLayout_3)
-        self.horizontalLayout_5.addLayout(self.verticalLayout_4)
+        self.horizontalLayout_6.addLayout(self.verticalLayout_4)
 
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
@@ -312,7 +416,27 @@ class Ui_Form(object):
         self.timer2 = QTimer()
         self.timer2.timeout.connect(self.my_timer_function_2)
         self.timer2.setInterval(100)  # 0.1秒
+        self.model_check.stateChanged.connect(self.model_check_changed)
+        self.model_check_2.stateChanged.connect(self.model_check_2_changed)
 
+    def model_check_changed(self, state):
+        global model_flag
+        if state == Qt.Checked:
+            # model_check 被选中，取消 model_check_2 的选中状态
+            self.model_check_2.setChecked(False)
+            model_flag = 1
+        else:
+            model_flag = 0
+        print(model_flag)
+    def model_check_2_changed(self, state):
+        global model_flag
+        if state == Qt.Checked:
+            # model_check_2 被选中，取消 model_check 的选中状态
+            self.model_check.setChecked(False)
+            model_flag = 2
+        else:
+            model_flag = 0
+        print(model_flag)
     # 随机生成数字和颜色
     def generate_random_number_and_color(self):
         global generated_number
@@ -418,6 +542,8 @@ class Ui_Form(object):
     # 这是按钮被点击时会调用的槽函数
     def onButtonClicked(self):
         global gesture_result, generated_number, generated_color, true_cnt, false_cnt, total_cnt, add_flag, generated_time, timer
+        if not (self.model_check.isChecked() or self.model_check_2.isChecked()):
+            return
         gesture_result = None
         generated_number = None
         generated_color = None
@@ -439,6 +565,8 @@ class Ui_Form(object):
                                               "反应时间1s内记1分，1-1.5s内记0.5分，1.5-2s内不计分\n"
                                               " 程序会自动生成0-9的手势，数字是绿色的，则比数字对应的手势；\n"
                                               "数字是红色的就比除了这个数字的手势。"))
+        self.model_check.setText(_translate("Form", "模型1"))
+        self.model_check_2.setText(_translate("Form", "模型2"))
         self.timeout.setText(_translate("Form", "timeout"))
         self.total_points.setText(_translate("Form", "总分"))
         self.points.setText(_translate("Form", "0"))
@@ -457,6 +585,9 @@ class MyApplication(QWidget):
         self.ui.start.clicked.connect(self.btn)
 
     def btn(self):
+        if not (self.ui.model_check.isChecked() or self.ui.model_check_2.isChecked()):
+            QMessageBox.warning(self, "警告", "请选择一个模型", QMessageBox.Ok)
+            return
         print("线程开启")
         self.video_thread.start()
 
@@ -466,6 +597,24 @@ class MyApplication(QWidget):
         q_img = QtGui.QImage(frame.data, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
         pixmap = QtGui.QPixmap.fromImage(q_img)
         self.ui.image.setPixmap(pixmap)
+
+    def closeEvent(self, event):
+        hands.close()
+        # 停止线程
+        if self.video_thread.isRunning():
+            self.video_thread.terminate()
+        
+        # 停止定时器
+        if self.ui.timer.isActive():
+            self.ui.timer.stop()
+        if self.ui.timer2.isActive():
+            self.ui.timer2.stop()
+        
+        # 退出应用程序
+        QCoreApplication.instance().quit()
+
+        # 调用父类的 closeEvent
+        super().closeEvent(event)
 
 
 if __name__ == '__main__':
