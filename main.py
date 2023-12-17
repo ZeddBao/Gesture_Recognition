@@ -219,6 +219,9 @@ class VideoThread(QThread):
         while True:
             start = cv2.getTickCount()
             ret, frame = self.cap.read()             # 读取一帧图像
+            if not ret:
+                print("Failed to grab frame")
+                break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # BGR转RGB
             frame = cv2.flip(frame, 1)          # 左右镜像
             if model_flag == 1: #模型1
@@ -282,6 +285,12 @@ class VideoThread(QThread):
             cv2.putText(frame, "FPS: {:.2f}".format(fps), (0, 30), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # BGR转RGB
             self.frame_ready.emit(frame)
+    
+    def stop(self):
+        self.cap.release()
+        cv2.destroyAllWindows()
+        self.quit()
+        self.wait()
 
 
 
@@ -411,7 +420,7 @@ class Ui_Form(object):
         self.start.clicked.connect(self.onButtonClicked)
         self.timer = QTimer()
         self.timer.timeout.connect(self.my_timer_function)
-        self.timer.setInterval(1000)  # 1秒
+        self.timer.setInterval(2000)  # 1秒
 
         self.timer2 = QTimer()
         self.timer2.timeout.connect(self.my_timer_function_2)
@@ -602,7 +611,7 @@ class MyApplication(QWidget):
         hands.close()
         # 停止线程
         if self.video_thread.isRunning():
-            self.video_thread.terminate()
+            self.video_thread.stop()
         
         # 停止定时器
         if self.ui.timer.isActive():
