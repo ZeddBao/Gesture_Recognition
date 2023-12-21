@@ -1,3 +1,5 @@
+import time
+
 import cv2
 import numpy as np
 import rospy
@@ -6,7 +8,6 @@ import moveit_commander
 from geometry_msgs.msg import Pose
 
 arm_group = moveit_commander.MoveGroupCommander("arm")
-
 
 def calculate_angle(A, B, C):
     A = np.array(A)
@@ -56,6 +57,8 @@ def move_joint_rad(joint_goal_rad, mode):
         joint_goal[4] = joint_goal_rad[4]
 
     arm_group.go(joint_goal, wait=False)
+    # time.sleep(0.2)
+    # arm_group.stop()
     
 rospy.init_node('gesture_node')
 
@@ -70,6 +73,7 @@ rospy.loginfo('Mediapipe hands initialized.')
 
 cap = cv2.VideoCapture(0)
 rospy.loginfo('Camera initialized.')
+tick = 0
 
 while cap.isOpened():
     success, image = cap.read()
@@ -81,8 +85,9 @@ while cap.isOpened():
     annotated_image = image.copy()
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
-            joint_1, joint_2, joint_3, joint_4, joint_5 = process_hand(hand_landmarks)
-            move_joint_rad([joint_1, joint_2, joint_3, joint_4, joint_5], 'ABS')
+            if tick % 25 == 0:
+                joint_1, joint_2, joint_3, joint_4, joint_5 = process_hand(hand_landmarks)
+                move_joint_rad([joint_1, joint_2, joint_3, joint_4, joint_5], 'ABS')
             mp_drawing.draw_landmarks(
                 annotated_image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
         cv2.imshow('MediaPipe Hands', annotated_image)
@@ -92,6 +97,7 @@ while cap.isOpened():
         cv2.imshow('MediaPipe Hands', image)
         if cv2.waitKey(5) & 0xFF == 27:
             break
+    tick += 1
 
 cv2.destroyAllWindows()
 cap.release()
