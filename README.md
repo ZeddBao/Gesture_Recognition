@@ -22,6 +22,8 @@
   Your browser does not support the video tag.
 </video>
 
+[数字手势识别小游戏展示视频](./doc/数字手势识别小游戏.mp4)
+
 ## 环境配置
 
 ### `PyTorch` 安装
@@ -90,6 +92,8 @@ python3 main.py
   <source src="./doc/机械臂跟随手指手势运动.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
+
+[机械臂手势跟随展示视频](./doc/机械臂跟随手指手势运动.mp4)
 
 ## 环境配置
 
